@@ -13,7 +13,8 @@ export default function PDFExportButton({ report, template }: { report: LiverRep
         setIsExporting(true);
         try {
             // Dynamic import to avoid SSR issues with window object
-            const html2pdf = (await import('html2pdf.js')).default;
+            const html2pdfModule = await import('html2pdf.js');
+            const html2pdf = html2pdfModule.default || html2pdfModule;
 
             const element = document.createElement('div');
 
@@ -108,8 +109,18 @@ export default function PDFExportButton({ report, template }: { report: LiverRep
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
+            // Attach element temporarily to the DOM so html2canvas can compute styles
+            element.style.position = 'absolute';
+            element.style.left = '-9999px';
+            element.style.top = '-9999px';
+            document.body.appendChild(element);
+
             // Generate
             await html2pdf().set(opt).from(element).save();
+
+            // Clean up
+            document.body.removeChild(element);
+
             toast.success("PDF Exported Successfully");
 
         } catch (error) {
@@ -122,12 +133,6 @@ export default function PDFExportButton({ report, template }: { report: LiverRep
 
     return (
         <div className="flex items-center gap-3 no-print">
-            <button
-                onClick={() => window.print()}
-                className="flex items-center gap-2 px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-[#1E3A8A] border border-gray-300 rounded-lg font-bold text-sm transition-colors shadow-sm"
-            >
-                Print Report
-            </button>
             <button
                 onClick={handleExport}
                 disabled={isExporting}

@@ -10,12 +10,12 @@ export default async function NewReportPage() {
         redirect('/login');
     }
 
-    // Use Service Role to bypass RLS so Doctors can see all Patients to choose from
+    // Use Service Role to bypass RLS, but strictly filter for patients assigned to THIS doctor
     const supabaseAdmin = createSupabaseClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
-    const { data: patients } = await supabaseAdmin.from('profiles').select('id, full_name, role, created_at').eq('role', 'patient').order('created_at', { ascending: false });
+    const { data: patients } = await supabaseAdmin.from('profiles').select('id, full_name, role, created_at').eq('role', 'patient').eq('assigned_doctor', user.id).order('created_at', { ascending: false });
 
     return (
         <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">
