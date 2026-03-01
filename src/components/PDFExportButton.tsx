@@ -6,7 +6,17 @@ import { LiverReport } from '@/types/report';
 import toast from 'react-hot-toast';
 import { marked } from 'marked';
 
-export default function PDFExportButton({ report, template }: { report: LiverReport, template: any }) {
+export default function PDFExportButton({
+    report,
+    template,
+    prescription,
+    doctorName
+}: {
+    report: LiverReport;
+    template: any;
+    prescription?: any;
+    doctorName?: string;
+}) {
     const [isExporting, setIsExporting] = useState(false);
 
     const handleExport = async () => {
@@ -96,6 +106,36 @@ export default function PDFExportButton({ report, template }: { report: LiverRep
                     <div style="background-color: #f8fafc; padding: 20px; border-left: 4px solid ${brandingColor}; line-height: 1.6; font-size: 14px; margin-bottom: 50px;">
                         ${aiSummaryHtml}
                     </div>
+
+                    ${prescription ? `
+                    <!-- Prescription -->
+                    <h3 style="color: ${brandingColor}; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 20px;">Doctor Prescription</h3>
+                    <div style="background-color: #fafafa; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 50px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px dashed #d1d5db; padding-bottom: 15px; margin-bottom: 20px;">
+                            <div>
+                                <h4 style="margin: 0; font-size: 20px; color: #111827;">${doctorName || 'Hepatology Specialist'}</h4>
+                                <p style="margin: 5px 0 0 0; font-size: 12px; font-weight: bold; color: #2563EB; text-transform: uppercase; letter-spacing: 1px;">Hepatology Specialist</p>
+                            </div>
+                            <p style="margin: 0; font-size: 24px; color: #6B7280; font-family: monospace; font-weight: bold;">Rx</p>
+                        </div>
+                        
+                        <div style="font-size: 15px; color: #374151; line-height: 1.8; min-height: 120px; white-space: pre-wrap; font-family: 'Courier New', Courier, monospace;">${prescription.prescription_text}</div>
+                        
+                        ${prescription.follow_up_date ? `
+                        <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #e5e7eb; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+                            <span style="font-weight: bold; color: #4b5563;">Follow-up Recommended:</span> 
+                            <span style="color: #1E3A8A; font-weight: bold;">${new Date(prescription.follow_up_date).toLocaleDateString()}</span>
+                        </div>
+                        ` : ''}
+                        
+                        <div style="margin-top: 40px; padding-top: 15px; border-top: 2px dashed #d1d5db; text-align: right;">
+                            <div style="display: inline-block; text-align: center; width: 200px;">
+                                <div style="height: 20px; border-bottom: 1px solid #9ca3af; margin-bottom: 8px;"></div>
+                                <p style="margin: 0; font-size: 12px; color: #6b7280; font-weight: bold;">Doctor Signature</p>
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
 
                     <!-- Footer -->
                     <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid #ddd; text-align: center; font-size: 10px; color: #888;">

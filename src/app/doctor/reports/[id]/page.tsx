@@ -76,7 +76,12 @@ export default async function ReportDetail({ params }: { params: Promise<{ id: s
                                 <p className="text-muted-foreground font-medium mb-4">
                                     {report.age} years old &bull; {report.gender} &bull; Generated {date}
                                 </p>
-                                <PDFExportButton report={report} template={template} />
+                                <PDFExportButton
+                                    report={report}
+                                    template={template}
+                                    prescription={prescription || null}
+                                    doctorName={doctor?.full_name || 'Hepatology Specialist'}
+                                />
                             </div>
                             <div className="text-right">
                                 <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-2">Overall Risk Score</p>
