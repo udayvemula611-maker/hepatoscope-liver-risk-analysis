@@ -56,7 +56,7 @@ export default function Login() {
                         </div>
                     </div>
                     <h2 className="mt-6 text-center text-3xl font-extrabold text-[#1E3A8A]">
-                        HepatoScope Login
+                        Liver Analysis Login
                     </h2>
                     <p className="mt-2 text-center text-sm text-gray-600">
                         Secure provider and patient access

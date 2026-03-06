@@ -18,7 +18,7 @@ export default function Home() {
         </h1>
 
         <p className="text-xl text-gray-600 max-w-2xl mx-auto font-medium">
-          HepatoScope empowers healthcare professionals and patients with rapid, secure, and intelligent liver function test evaluations.
+          Liver Analysis empowers healthcare professionals and patients with rapid, secure, and intelligent liver function test evaluations.
         </p>
 
         <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">

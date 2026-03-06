@@ -13,7 +13,7 @@ export default async function Navbar() {
                         <span className="text-white text-sm font-bold">H</span>
                     </div>
                     <span className="font-bold sm:inline-block text-xl text-[#1E3A8A] tracking-tight">
-                        HepatoScope
+                        Liver Analysis
                     </span>
                 </Link>
 

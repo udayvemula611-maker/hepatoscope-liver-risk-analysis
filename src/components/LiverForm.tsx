@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,10 +14,21 @@ import * as motion from 'framer-motion/client';
 
 const formSchema = z.object({
     patient_id: z.string().min(1, "Please select a registered patient"),
+    age: z.coerce.number().min(1),
+    gender: z.string().min(1),
     total_bilirubin: z.coerce.number().min(0).step(0.1),
     sgpt: z.coerce.number().min(0),
     sgot: z.coerce.number().min(0),
     albumin: z.coerce.number().min(0).step(0.1),
+    alk_phosphate: z.coerce.number().min(0).optional(),
+    protime: z.coerce.number().min(0).optional(),
+    fatigue: z.preprocess((val) => val === 'true' || val === true, z.boolean()),
+    spiders: z.preprocess((val) => val === 'true' || val === true, z.boolean()),
+    ascites: z.preprocess((val) => val === 'true' || val === true, z.boolean()),
+    varices: z.preprocess((val) => val === 'true' || val === true, z.boolean()),
+    steroid: z.preprocess((val) => val === 'true' || val === true, z.boolean()),
+    antivirals: z.preprocess((val) => val === 'true' || val === true, z.boolean()),
+    histology: z.string().default('None'),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -31,24 +42,49 @@ export default function LiverForm({ patients = [] }: { patients?: UserProfile[] 
         register,
         handleSubmit,
         watch,
+        setValue,
         formState: { errors }
     } = useForm<FormData>({
         resolver: zodResolver(formSchema) as any,
         defaultValues: {
             patient_id: '',
+            age: 0,
+            gender: '',
+            fatigue: false,
+            spiders: false,
+            ascites: false,
+            varices: false,
+            steroid: false,
+            antivirals: false,
+            histology: 'None',
         }
     });
+
+    const selectedPatientId = watch('patient_id');
+
+    // Auto-fill Age and Gender when patient is selected
+    useEffect(() => {
+        const selectedPatient = patients.find(p => p.id === selectedPatientId);
+        if (selectedPatient) {
+            if (selectedPatient.age) setValue('age', selectedPatient.age);
+            if (selectedPatient.gender) setValue('gender', selectedPatient.gender);
+        }
+    }, [selectedPatientId, patients, setValue]);
 
     const formValues = watch(); // Live track all inputs
 
     // Calculate deterministic risk safely assuming partial data might be present
     const liveRisk = calculateRisk({
-        patient_name: '', // Not needed for calculation
+        patient_name: '',
         ...formValues,
         total_bilirubin: Number(formValues.total_bilirubin) || 0,
         sgpt: Number(formValues.sgpt) || 0,
         sgot: Number(formValues.sgot) || 0,
         albumin: Number(formValues.albumin) || 0,
+        alk_phosphate: Number(formValues.alk_phosphate) || 0,
+        protime: Number(formValues.protime) || 0,
+        age: Number(formValues.age) || 0,
+        gender: formValues.gender || 'Unknown',
     } as any);
 
     const onSubmit = async (data: FormData) => {
@@ -62,6 +98,8 @@ export default function LiverForm({ patients = [] }: { patients?: UserProfile[] 
             patient_name: selectedPatient ? selectedPatient.full_name : 'Unknown Patient'
         };
 
+        console.log("LiverForm: Submitting Data", payload);
+
         try {
             const res = await fetch('/api/analyze', {
                 method: 'POST',
@@ -70,6 +108,7 @@ export default function LiverForm({ patients = [] }: { patients?: UserProfile[] 
             });
 
             const result = await res.json();
+            console.log("LiverForm: API Response", result);
 
             if (!res.ok) {
                 throw new Error(result.error || 'Failed to submit report');
@@ -83,6 +122,10 @@ export default function LiverForm({ patients = [] }: { patients?: UserProfile[] 
         } finally {
             setLoading(false);
         }
+    };
+
+    const onError = (errors: any) => {
+        console.error("LiverForm Validation Errors:", errors);
     };
 
     return (
@@ -99,7 +142,7 @@ export default function LiverForm({ patients = [] }: { patients?: UserProfile[] 
                         <CardDescription>Enter patient lab values to calculate risk and generate an AI-assisted report.</CardDescription>
                     </CardHeader>
                     <CardContent className="p-6">
-                        <form id="liver-form" onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+                        <form id="liver-form" onSubmit={handleSubmit(onSubmit, onError)} className="space-y-8">
 
                             {/* Patient Selection */}
                             <div className="space-y-3">
@@ -114,6 +157,125 @@ export default function LiverForm({ patients = [] }: { patients?: UserProfile[] 
                                     ))}
                                 </select>
                                 {errors.patient_id && <p className="text-destructive text-xs font-medium">{errors.patient_id.message}</p>}
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border">
+                                <div className="space-y-2">
+                                    <label className="block text-sm font-bold text-foreground">Age</label>
+                                    <input
+                                        type="number"
+                                        {...register('age')}
+                                        readOnly={!!selectedPatientId}
+                                        className={`w-full px-4 py-3 border border-border rounded-lg focus:ring-primary focus:border-primary transition-colors ${selectedPatientId ? 'bg-gray-100 cursor-not-allowed opacity-75' : 'bg-white'}`}
+                                        placeholder="7"
+                                    />
+                                    {errors.age && <p className="text-destructive text-xs font-medium">{errors.age.message}</p>}
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="block text-sm font-bold text-foreground">Gender</label>
+                                    <div className={`flex space-x-4 pt-2 p-1 rounded ${selectedPatientId ? 'bg-gray-50' : ''}`}>
+                                        <label className={`flex items-center space-x-2 ${selectedPatientId ? 'cursor-not-allowed' : ''}`}>
+                                            <input type="radio" value="Male" {...register('gender')} className={`text-primary focus:ring-primary h-4 w-4 ${selectedPatientId ? 'pointer-events-none opacity-50' : ''}`} />
+                                            <span className={`text-sm ${selectedPatientId ? 'text-muted-foreground' : ''}`}>Male</span>
+                                        </label>
+                                        <label className={`flex items-center space-x-2 ${selectedPatientId ? 'cursor-not-allowed' : ''}`}>
+                                            <input type="radio" value="Female" {...register('gender')} className={`text-primary focus:ring-primary h-4 w-4 ${selectedPatientId ? 'pointer-events-none opacity-50' : ''}`} />
+                                            <span className={`text-sm ${selectedPatientId ? 'text-muted-foreground' : ''}`}>Female</span>
+                                        </label>
+                                    </div>
+                                    {errors.gender && <p className="text-destructive text-xs font-medium">{errors.gender.message}</p>}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border">
+                                <div className="space-y-3">
+                                    <label className="block text-sm font-bold text-foreground">Have you Addicted to Steroids?</label>
+                                    <div className="flex space-x-4">
+                                        <label className="flex items-center space-x-2">
+                                            <input type="radio" value="false" {...register('steroid')} defaultChecked className="text-primary focus:ring-primary h-4 w-4" />
+                                            <span className="text-sm">No</span>
+                                        </label>
+                                        <label className="flex items-center space-x-2">
+                                            <input type="radio" value="true" {...register('steroid')} className="text-primary focus:ring-primary h-4 w-4" />
+                                            <span className="text-sm">Yes</span>
+                                        </label>
+                                    </div>
+                                    {errors.steroid && <p className="text-destructive text-xs font-medium">{errors.steroid.message as string}</p>}
+                                </div>
+
+                                <div className="space-y-3">
+                                    <label className="block text-sm font-bold text-foreground">Have you Addicted to Antivirals?</label>
+                                    <div className="flex space-x-4">
+                                        <label className="flex items-center space-x-2">
+                                            <input type="radio" value="false" {...register('antivirals')} defaultChecked className="text-primary focus:ring-primary h-4 w-4" />
+                                            <span className="text-sm">No</span>
+                                        </label>
+                                        <label className="flex items-center space-x-2">
+                                            <input type="radio" value="true" {...register('antivirals')} className="text-primary focus:ring-primary h-4 w-4" />
+                                            <span className="text-sm">Yes</span>
+                                        </label>
+                                    </div>
+                                    {errors.antivirals && <p className="text-destructive text-xs font-medium">{errors.antivirals.message as string}</p>}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border">
+                                <div className="space-y-3">
+                                    <label className="block text-sm font-bold text-foreground">Are You Fatigued?</label>
+                                    <div className="flex space-x-4">
+                                        <label className="flex items-center space-x-2">
+                                            <input type="radio" value="false" {...register('fatigue')} defaultChecked className="text-primary focus:ring-primary h-4 w-4" />
+                                            <span className="text-sm">No</span>
+                                        </label>
+                                        <label className="flex items-center space-x-2">
+                                            <input type="radio" value="true" {...register('fatigue')} className="text-primary focus:ring-primary h-4 w-4" />
+                                            <span className="text-sm">Yes</span>
+                                        </label>
+                                    </div>
+                                    {errors.fatigue && <p className="text-destructive text-xs font-medium">{errors.fatigue.message as string}</p>}
+                                </div>
+
+                                <div className="space-y-3">
+                                    <label className="block text-sm font-bold text-foreground">Presence of Spider Naevi</label>
+                                    <div className="flex space-x-4">
+                                        <label className="flex items-center space-x-2">
+                                            <input type="radio" value="false" {...register('spiders')} defaultChecked className="text-primary focus:ring-primary h-4 w-4" />
+                                            <span className="text-sm">No</span>
+                                        </label>
+                                        <label className="flex items-center space-x-2">
+                                            <input type="radio" value="true" {...register('spiders')} className="text-primary focus:ring-primary h-4 w-4" />
+                                            <span className="text-sm">Yes</span>
+                                        </label>
+                                    </div>
+                                    {errors.spiders && <p className="text-destructive text-xs font-medium">{errors.spiders.message as string}</p>}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border">
+                                <div className="space-y-2">
+                                    <label className="block text-sm font-bold text-foreground">Presence of Varices</label>
+                                    <select
+                                        {...register('varices')}
+                                        className="w-full px-4 py-3 border border-border rounded-lg focus:ring-primary focus:border-primary transition-colors bg-white"
+                                    >
+                                        <option value="false">No</option>
+                                        <option value="true">Yes</option>
+                                    </select>
+                                    {errors.varices && <p className="text-destructive text-xs font-medium">{errors.varices.message as string}</p>}
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="block text-sm font-bold text-foreground">Presence of Ascites</label>
+                                    <select
+                                        {...register('ascites')}
+                                        className="w-full px-4 py-3 border border-border rounded-lg focus:ring-primary focus:border-primary transition-colors bg-white"
+                                    >
+                                        <option value="false">No</option>
+                                        <option value="true">Yes</option>
+                                    </select>
+                                    {errors.ascites && <p className="text-destructive text-xs font-medium">{errors.ascites.message as string}</p>}
+                                </div>
                             </div>
 
                             <div className="pt-4 border-t border-border">
@@ -188,6 +350,53 @@ export default function LiverForm({ patients = [] }: { patients?: UserProfile[] 
                                             <span>Reference: 8 - 48</span>
                                             {errors.sgot && <span className="text-destructive text-right">{errors.sgot.message}</span>}
                                         </p>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-bold text-foreground">Alk Phostate</label>
+                                        <div className="relative">
+                                            <input
+                                                type="number"
+                                                {...register('alk_phosphate')}
+                                                className="w-full px-4 py-3 border border-border rounded-lg focus:ring-primary focus:border-primary transition-colors pr-12 bg-white"
+                                                placeholder="100"
+                                            />
+                                            <span className="absolute right-4 top-3.5 text-muted-foreground text-sm font-medium">U/L</span>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground font-medium flex justify-between">
+                                            <span>Reference: 44 - 147</span>
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-bold text-foreground">Protime</label>
+                                        <div className="relative">
+                                            <input
+                                                type="number"
+                                                {...register('protime')}
+                                                className="w-full px-4 py-3 border border-border rounded-lg focus:ring-primary focus:border-primary transition-colors pr-12 bg-white"
+                                                placeholder="12"
+                                            />
+                                            <span className="absolute right-4 top-3.5 text-muted-foreground text-sm font-medium">sec</span>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground font-medium flex justify-between">
+                                            <span>Reference: 11 - 13.5</span>
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-bold text-foreground">Histology</label>
+                                        <select
+                                            {...register('histology')}
+                                            className="w-full px-4 py-3 border border-border rounded-lg focus:ring-primary focus:border-primary transition-colors bg-white"
+                                        >
+                                            <option value="None">No</option>
+                                            <option value="F0">F0 - Normal</option>
+                                            <option value="F1">F1 - Mild Fibrosis</option>
+                                            <option value="F2">F2 - Moderate Fibrosis</option>
+                                            <option value="F3">F3 - Severe Fibrosis</option>
+                                            <option value="F4">F4 - Cirrhosis</option>
+                                        </select>
                                     </div>
 
                                 </div>

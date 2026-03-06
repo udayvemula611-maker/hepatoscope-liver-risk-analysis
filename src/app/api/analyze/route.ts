@@ -22,16 +22,27 @@ export async function POST(req: Request) {
             .single();
 
         if (profile?.role !== 'doctor') {
+            console.error(`AI: Unauthorized Role. User ${user.id} is a ${profile?.role}.`);
             return NextResponse.json({ error: 'Only doctors can submit liver analysis reports' }, { status: 403 });
         }
 
         const body = await req.json();
+        console.log("AI: Received Request Body:", JSON.stringify(body, null, 2));
         const {
             patient_id,
             total_bilirubin,
             sgpt,
             sgot,
-            albumin
+            albumin,
+            alk_phosphate,
+            protime,
+            fatigue,
+            spiders,
+            ascites,
+            varices,
+            steroid,
+            antivirals,
+            histology
         } = body;
 
         // Fetch patient demographics securely bypassing RLS
@@ -46,16 +57,25 @@ export async function POST(req: Request) {
             );
 
             const { data: patientProfile, error: profileErr } = await supabaseAdmin.from('profiles').select('full_name, age, gender').eq('id', patient_id).single();
-            if (!profileErr && patientProfile) {
+            if (profileErr) {
+                console.error("AI: Patient Profile Fetch Error:", profileErr.message);
+            } else if (patientProfile) {
                 patient_name = patientProfile.full_name || 'Anonymous Patient';
                 age = patientProfile.age;
                 gender = patientProfile.gender || 'Unknown';
+                console.log(`AI: Fetched Demographics for ${patient_id}: Name=${patient_name}, Age=${age}, Gender=${gender}`);
             }
         }
 
         // Validate inputs
-        if (!patient_id || !age || !gender || total_bilirubin == null || sgpt == null || sgot == null || albumin == null) {
-            return NextResponse.json({ error: 'Missing required lab values or Patient demographics not set.' }, { status: 400 });
+        if (!patient_id || age === null || gender === 'Unknown' || total_bilirubin == null || sgpt == null || sgot == null || albumin == null) {
+            const missing = [];
+            if (!patient_id) missing.push('patient_id');
+            if (age === null) missing.push('age');
+            if (gender === 'Unknown') missing.push('gender');
+            if (total_bilirubin == null) missing.push('total_bilirubin');
+            console.error("AI: Validation Failed. Missing fields:", missing.join(', '));
+            return NextResponse.json({ error: `Missing required lab values or Patient demographics not set: ${missing.join(', ')}` }, { status: 400 });
         }
 
         const fullReportData = {
@@ -69,7 +89,9 @@ export async function POST(req: Request) {
         const risk = calculateRisk(fullReportData);
 
         // 2. Generate AI Explanation via Ollama API
+        console.log("AI: Starting AI summary generation...");
         const summary = await generateSummary(fullReportData, risk.score, risk.level);
+        console.log("AI: Summary generated successfully.");
 
         // 3. Store record securely in Supabase
         const { data: insertData, error } = await supabase.from('liver_reports').insert({
@@ -82,6 +104,15 @@ export async function POST(req: Request) {
             sgpt: Number(sgpt),
             sgot: Number(sgot),
             albumin: Number(albumin),
+            alk_phosphate: alk_phosphate ? Number(alk_phosphate) : null,
+            protime: protime ? Number(protime) : null,
+            fatigue: !!fatigue,
+            spiders: !!spiders,
+            ascites: !!ascites,
+            varices: !!varices,
+            steroid: !!steroid,
+            antivirals: !!antivirals,
+            histology: histology || 'None',
             risk_score: risk.score,
             risk_level: risk.level,
             ai_summary: summary

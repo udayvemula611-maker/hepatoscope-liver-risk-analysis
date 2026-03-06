@@ -14,7 +14,7 @@ export default function Loading() {
                     </div>
                 </div>
                 <div className="text-center">
-                    <h2 className="text-2xl font-bold tracking-tight text-blue-900">HepatoScope</h2>
+                    <h2 className="text-2xl font-bold tracking-tight text-blue-900">Liver Analysis</h2>
                     <p className="mt-1 text-sm font-medium text-slate-500 animate-pulse">Initializing Medical Environment...</p>
                 </div>
             </div>

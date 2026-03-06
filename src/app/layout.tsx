@@ -7,7 +7,7 @@ import { Toaster } from "react-hot-toast";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "HepatoScope | Advanced Medical Liver Analysis",
+  title: "Liver Analysis | Advanced Medical Liver Analysis",
   description: "An AI-powered SaaS platform for Doctors and Patients to perform predictive, non-invasive liver risk analysis and generate actionable health reports.",
   keywords: ["medical SaaS", "liver disease", "AI analysis", "health tech", "Next.js", "Supabase"],
   authors: [{ name: "Uday Vemula" }],

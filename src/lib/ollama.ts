@@ -10,40 +10,53 @@ export async function generateSummary(
     // Privacy First: Explicitly omit the patient name from the LLM payload to maintain clinical confidentiality
     const prompt = `
 You are an expert hepatologist AI assistant. 
-Analyze the following Liver Function Test (LFT) results for a ${values.age}-year-old ${values.gender}.
+Analyze the following comprehensive Liver Function Profile for a ${values.age}-year-old ${values.gender}.
 
-Lab Values:
-- Total Bilirubin: ${values.total_bilirubin} mg/dL (Normal Range: 0.1 - 1.2 mg/dL)
-- SGPT (ALT): ${values.sgpt} U/L (Normal Range: 7 - 56 U/L)
-- SGOT (AST): ${values.sgot} U/L (Normal Range: 8 - 48 U/L)
-- Albumin: ${values.albumin} g/dL (Normal Range: 3.4 - 5.4 g/dL)
+Primary Biomarkers:
+- Total Bilirubin: ${values.total_bilirubin} mg/dL (Normal: 0.1 - 1.2)
+- SGPT (ALT): ${values.sgpt} U/L (Normal: 7 - 56)
+- SGOT (AST): ${values.sgot} U/L (Normal: 8 - 48)
+- Albumin: ${values.albumin} g/dL (Normal: 3.4 - 5.4)
 
-Risk Engine Output:
-- Score: ${riskScore}
-- Level: ${riskLevel}
+Advanced Markers & History:
+- Alk Phosphate: ${values.alk_phosphate || 'N/A'} U/L (Normal: 44 - 147)
+- Prothrombin Time: ${values.protime || 'N/A'} s (Normal: 11 - 13.5)
+- Medical History: ${[values.steroid ? 'On Steroids' : null, values.antivirals ? 'On Antivirals' : null].filter(Boolean).join(', ') || 'None reported'}
 
-Provide a clear, professional, yet understandable summary of these results. 
-1. Identify any specific abnormal values and their severity.
-2. Outline what these abnormalities might indicate clinically.
-3. Suggest general follow-up actions for the physician to consider.
+Clinical Symptoms:
+- Fatigue: ${values.fatigue ? 'PRESENT' : 'Absent'}
+- Spiders: ${values.spiders ? 'PRESENT' : 'Absent'}
+- Ascites: ${values.ascites ? 'PRESENT' : 'Absent'}
+- Varices: ${values.varices ? 'PRESENT' : 'Absent'}
+- Histology: ${values.histology || 'Not Performed'}
+
+Risk Engine Model Output:
+- Risk Score: ${riskScore} / 50
+- Risk Level: ${riskLevel}
+- Probability Score: ${values.alk_phosphate ? Math.round((riskScore / 50) * 100) : 'N/A'}%
+
+Provide a sophisticated, professional medical synthesis. 
+1. Correlate clinical symptoms (like Ascites/Varices) with lab abnormalities (Bilirubin/Albumin).
+2. Explain the significance of the probability score in the context of these markers.
+3. Outline potential differential considerations and specific clinical follow-ups.
 
 Keep the response cleanly formatted in 3-4 concise paragraphs. Focus strictly on the medical data above. Do not output markdown code blocks or conversational filler.
 `;
 
     try {
-        const baseUrl = process.env.OLLAMA_BASE_URL || 'https://ollama.com';
         const apiKey = process.env.OLLAMA_API_KEY || '';
+        const baseUrl = process.env.OLLAMA_BASE_URL || 'https://ollama.com';
+        
+        console.log(`AI: Connecting to Cloud Ollama (${baseUrl}) using model gpt-oss:120b...`);
 
-        // Use Official Ollama client
+        // Use Official Ollama client with Cloud parameters
         const ollama = new Ollama({
             host: baseUrl,
             headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : undefined
         });
 
-        // Use standard models depending on environment
-        // Defaults to 'llama3' for local Ollama, and 'gpt-oss:120b' if using Ollama Cloud (per documentation)
-        const isCloud = baseUrl.includes('ollama.com');
-        const model = process.env.OLLAMA_MODEL || (isCloud ? 'gpt-oss:120b' : 'llama3');
+        // Use the cloud model as requested
+        const model = 'gpt-oss:120b';
 
         const response = await ollama.chat({
             model: model,
@@ -59,7 +72,7 @@ Keep the response cleanly formatted in 3-4 concise paragraphs. Focus strictly on
 
         return response.message?.content?.trim() || "Generated AI summary could not be extracted.";
     } catch (error: any) {
-        console.error("Error connecting to AI service:", error);
+        console.error("AI: Cloud Connectivity Error:", error.message);
         return "Error generating AI explanation. " + (error?.message || "Service unavailable.");
     }
 }
