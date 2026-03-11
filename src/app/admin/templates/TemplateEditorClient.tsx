@@ -36,6 +36,7 @@ export default function TemplateEditorClient({ templates = [] }: { templates: an
     const router = useRouter(); // Next.js router for refreshing data.
     const [isCreating, setIsCreating] = useState(false); // State to control the visibility of the "Create Template" modal.
     const [loading, setLoading] = useState(false); // State to manage loading status during form submissions.
+    const [editingId, setEditingId] = useState<string | null>(null); // Track the template being edited
 
     // Initializes react-hook-form with Zod resolver for schema validation.
     const {
@@ -62,7 +63,12 @@ export default function TemplateEditorClient({ templates = [] }: { templates: an
      */
     const toggleCreateModal = () => {
         setIsCreating(!isCreating);
-        if (!isCreating) reset(); // Reset form when opening to create a new template.
+        if (!isCreating) {
+            reset({ primary_color: '#1E3A8A', is_active: false }); // Reset form when opening to create a new template.
+            setEditingId(null);
+        } else {
+            setEditingId(null);
+        }
     };
 
     /**
@@ -73,9 +79,12 @@ export default function TemplateEditorClient({ templates = [] }: { templates: an
         setLoading(true); // Set loading state to true.
 
         try {
-            // Send a POST request to the template creation API endpoint.
-            const res = await fetch('/api/templates/create', {
-                method: 'POST',
+            // Determine API URL and method based on whether we are creating or updating
+            const url = editingId ? `/api/templates/${editingId}` : '/api/templates/create';
+            const method = editingId ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+                method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data), // Send form data as JSON.
             });
@@ -83,16 +92,51 @@ export default function TemplateEditorClient({ templates = [] }: { templates: an
             if (!res.ok) {
                 // If the response is not successful, parse and throw an error.
                 const errorData = await res.json();
-                throw new Error(errorData.error || 'Failed to save template');
+                throw new Error(errorData.error || `Failed to ${editingId ? 'update' : 'save'} template`);
             }
 
-            toast.success("Template Saved Successfully"); // Display success notification.
-            toggleCreateModal(); // Close the modal.
+            toast.success(`Template ${editingId ? 'Updated' : 'Saved'} Successfully`); // Display success notification.
+            setIsCreating(false); // Close the modal.
+            setEditingId(null);
             router.refresh(); // Refresh the router to update the list of templates.
         } catch (err: any) {
             toast.error(err.message); // Display error notification.
         } finally {
             setLoading(false); // Reset loading state.
+        }
+    };
+
+    /**
+     * Handles opening the modal in edit mode.
+     */
+    const handleEdit = (tpl: any) => {
+        setValue('hospital_name', tpl.hospital_name || '');
+        setValue('logo_url', tpl.logo_url || '');
+        setValue('primary_color', tpl.primary_color || '#1E3A8A');
+        setValue('disclaimer_text', tpl.disclaimer_text || '');
+        setValue('is_active', tpl.is_active || false);
+        setEditingId(tpl.id);
+        setIsCreating(true);
+    };
+
+    /**
+     * Handles deleting a template.
+     */
+    const handleDelete = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this template?')) return;
+        setLoading(true);
+        try {
+            const res = await fetch(`/api/templates/${id}`, { method: 'DELETE' });
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || 'Failed to delete template');
+            }
+            toast.success('Template deleted successfully');
+            router.refresh();
+        } catch (err: any) {
+            toast.error(err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -128,10 +172,10 @@ export default function TemplateEditorClient({ templates = [] }: { templates: an
                                         </span>
                                     )}
                                 </div>
-                                {/* Action buttons for editing and deleting templates (currently placeholders). */}
+                                {/* Action buttons for editing and deleting templates. */}
                                 <div className="flex gap-2 text-gray-400">
-                                    <button className="hover:text-blue-600 transition-colors"><Edit2 className="w-4 h-4" /></button>
-                                    <button className="hover:text-red-600 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                    <button onClick={() => handleEdit(tpl)} className="hover:text-blue-600 transition-colors" title="Edit Template"><Edit2 className="w-4 h-4" /></button>
+                                    <button onClick={() => handleDelete(tpl.id)} className="hover:text-red-600 transition-colors" title="Delete Template"><Trash2 className="w-4 h-4" /></button>
                                 </div>
                             </div>
 
@@ -162,7 +206,7 @@ export default function TemplateEditorClient({ templates = [] }: { templates: an
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden">
                         {/* Modal Header */}
                         <div className="border-b border-gray-100 px-6 py-4 flex justify-between items-center bg-gray-50">
-                            <h3 className="text-lg font-bold text-gray-900">Create New Template</h3>
+                            <h3 className="text-lg font-bold text-gray-900">{editingId ? 'Edit Template' : 'Create New Template'}</h3>
                             <button onClick={toggleCreateModal} className="text-gray-400 hover:text-gray-600 font-bold">&times;</button>
                         </div>
 
@@ -252,7 +296,7 @@ export default function TemplateEditorClient({ templates = [] }: { templates: an
                                     className="px-5 py-2.5 text-sm flex items-center gap-2 font-bold text-white bg-[#1E3A8A] hover:bg-[#152b66] disabled:opacity-70 rounded-lg transition-colors"
                                 >
                                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                                    Save Template
+                                    {editingId ? 'Update Template' : 'Save Template'}
                                 </button>
                             </div>
                         </form>
